@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Reaprender - Crecimiento Orgánico del Conocimiento</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; user-select:none; }
+        body {
+            font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+            background: #0a0f1e;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .presentation { position:relative; width:100%; height:100%; background:#000; overflow:hidden; }
+        .image-viewer {
+            width:100%; height:100%; overflow:hidden; position:relative;
+            touch-action:none; cursor:grab; background:#000;
+        }
+        .image-viewer.dragging { cursor:grabbing; }
+        .image-viewer img { display:block; max-width:none; width:auto; height:auto; pointer-events:none; }
+        .overlay {
+            position:absolute; top:0; left:0; width:100%; height:100%;
+            background:transparent; z-index:5; display:none;
+        }
+        .mapa-container {
+            position:absolute; top:10%; left:5%; width:80%; height:80%;
+            min-width:300px; min-height:300px;
+            background:rgba(0,0,0,0.15); backdrop-filter:blur(1px);
+            border-radius:20px; z-index:10; display:none;
+            flex-direction:column; overflow:hidden;
+            box-shadow:0 20px 40px rgba(0,0,0,0.5);
+            border:1px solid rgba(255,204,0,0.3); resize:both;
+        }
+        .mapa-header {
+            background:rgba(0,0,0,0.8); padding:12px 20px;
+            display:flex; justify-content:space-between; align-items:center;
+            color:#ffcc00; border-bottom:2px solid #ffcc00;
+            cursor:move; user-select:none; flex-wrap:wrap; gap:10px;
+        }
+        .mapa-header span { font-weight:bold; font-size:1.1rem; }
+        .mapa-header .btn-group { display:flex; gap:8px; }
+        .mapa-header button {
+            background:#ffcc00; border:none; padding:6px 14px;
+            border-radius:30px; font-weight:bold; cursor:pointer; color:#000;
+        }
+        .mapa-content {
+            flex:1; overflow-y:auto; padding:20px;
+            background:rgba(0,0,0,0.3);
+            scrollbar-width:thin; scrollbar-color:#ffcc00 #2a2a2a;
+            display:flex; flex-direction:column;
+        }
+        .children {
+            margin-left:25px; padding-left:15px;
+            border-left:3px solid #00e5ff; margin-top:8px;
+            display:flex; flex-direction:column-reverse;
+        }
+        .card {
+            background:rgba(0,0,0,0.3); border-radius:16px; margin-bottom:12px;
+            padding:10px 16px; cursor:pointer; transition:all 0.2s ease;
+            border-left:5px solid; backdrop-filter:blur(4px);
+        }
+        .card:hover { background:rgba(0,0,0,0.5); transform:translateX(4px); }
+        .level-0 { border-left-color:#ffcc00; background:rgba(0,0,0,0.8); }
+        .level-1 { border-left-color:#00e5ff; }
+        .level-2 { border-left-color:#b2ff59; }
+        .level-3 { border-left-color:#ff66cc; }
+        .level-4 { border-left-color:#ff9966; }
+        .title {
+            font-weight:600; display:flex; align-items:center; gap:8px;
+            flex-wrap:wrap; justify-content:space-between;
+        }
+        .title span:first-child { flex:1; pointer-events:none; }
+        .level-0 .title span:first-child { font-size:1.2rem; font-weight:bold; color:#fff; text-shadow:0 0 2px #000; }
+        .level-1 .title span:first-child { font-size:1.3rem; font-weight:bold; color:#ffcc00; text-shadow:0 0 2px rgba(0,0,0,0.5); }
+        .level-2 .title span:first-child,
+        .level-3 .title span:first-child,
+        .level-4 .title span:first-child { font-size:1rem; color:#f0f0f0; font-weight:500; }
+        .collapsed { display:none; }
+        .icon { font-size:1.2rem; color:#ffcc00; opacity:0.9; cursor:pointer; margin-left:4px; transition:0.2s; }
+        .icon:hover { opacity:1; text-shadow:0 0 4px #ffcc00; }
+        .note-btn {
+            background:rgba(0,0,0,0.5); border:none; border-radius:50%;
+            width:28px; height:28px; font-size:0.9rem; cursor:pointer;
+            color:#ffcc00; transition:0.2s; display:inline-flex;
+            align-items:center; justify-content:center;
+        }
+        .note-btn:hover { background:#ffcc00; color:#000; transform:scale(1.05); }
+        .note-indicator {
+            display:inline-block; width:8px; height:8px;
+            background-color:#00e5ff; border-radius:50%; margin-left:4px;
+            box-shadow:0 0 4px #00e5ff;
+        }
+        .note-panel {
+            position:absolute; top:20%; left:20%; width:400px; min-width:250px; min-height:200px;
+            background:rgba(30,30,47,0.95); border-radius:16px;
+            border:1px solid #ffcc00; box-shadow:0 10px 25px rgba(0,0,0,0.5);
+            z-index:1000; display:none; flex-direction:column; overflow:hidden; resize:both;
+        }
+        .note-panel-header {
+            background:#2d2d3a; padding:8px 12px; display:flex;
+            justify-content:space-between; align-items:center; cursor:move;
+            border-bottom:1px solid #ffcc00; color:#ffcc00;
+        }
+        .note-panel-header span { font-weight:bold; }
+        .note-panel-header button { background:none; border:none; color:white; font-size:1.2rem; cursor:pointer; }
+        .note-panel textarea {
+            width:100%; height:200px; background:#2a2a36; color:#f0f0f0;
+            border:none; padding:12px; font-family:monospace; font-size:0.9rem; resize:vertical;
+        }
+        .note-panel-footer {
+            padding:8px 12px; display:flex; justify-content:flex-end; gap:8px;
+            background:#2d2d3a;
+        }
+        .note-panel-footer button {
+            background:#ffcc00; border:none; padding:4px 12px; border-radius:20px; cursor:pointer;
+        }
+        .resize-handle-note {
+            position:absolute; bottom:5px; right:5px; width:16px; height:16px;
+            background:#ffcc00; border-radius:50%; cursor:nw-resize; opacity:0.6;
+        }
+        .resize-handle-note:hover { opacity:1; }
+        .nav-buttons {
+            position:absolute; bottom:20px; left:0; right:0; text-align:center;
+            z-index:15; display:flex; justify-content:center; gap:20px;
+        }
+        .nav-buttons button {
+            background:rgba(0,0,0,0.7); color:white; border:none;
+            padding:12px 24px; border-radius:40px; font-size:1rem;
+            cursor:pointer; backdrop-filter:blur(4px); transition:0.2s; font-weight:bold;
+        }
+        .nav-buttons button:hover { background:#ffcc00; color:black; }
+        .open-map-btn {
+            position:absolute; top:20px; right:20px; z-index:15;
+            background:#ffcc00; border:none; padding:10px 20px; border-radius:40px;
+            font-weight:bold; cursor:pointer; font-size:1rem; box-shadow:0 2px 10px rgba(0,0,0,0.3);
+        }
+        .open-map-btn:hover { transform:scale(1.02); background:#ffdd44; }
+        @media (max-width:768px) {
+            .mapa-container { width:95%; left:2.5%; height:85%; top:7.5%; }
+            .nav-buttons button { padding:8px 16px; }
+            .open-map-btn { padding:6px 12px; font-size:0.9rem; }
+            .note-panel { width:90%; left:5%; top:10%; }
+        }
+    </style>
+</head>
+<body>
+<div class="presentation">
+    <div class="image-viewer" id="imageViewer">
+        <img id="slideImg" src="" alt="Diapositiva">
+    </div>
+    <div class="overlay" id="overlay"></div>
+    <div class="mapa-container" id="mapaContainer">
+        <div class="mapa-header" id="mapaHeader">
+            <span>🌱 Mapa de Crecimiento Orgánico</span>
+            <div class="btn-group">
+                <button id="expandirTodoMapa">🔽 Expandir todo</button>
+                <button id="colapsarTodoMapa">🔼 Colapsar todo</button>
+                <button id="cambiarUsuarioBtn" style="background:#4caf50;">👤 Cambiar usuario</button>
+                <button id="cerrarMapaBtn">✖ Cerrar</button>
+            </div>
+        </div>
+        <div class="mapa-content" id="mapaContent"></div>
+        <div class="resize-handle" id="resizeHandle"></div>
+    </div>
+    <div class="nav-buttons">
+        <button id="prevSlideBtn">◀ Anterior</button>
+        <button id="nextSlideBtn">Siguiente ▶</button>
+    </div>
+    <button class="open-map-btn" id="openMapBtn">📊 Ver mapa de crecimiento</button>
+</div>
+
+<div id="notePanel" class="note-panel">
+    <div class="note-panel-header" id="notePanelHeader">
+        <span>✏️ Editar nota (Markdown)</span>
+        <button id="closeNotePanelBtn">&times;</button>
+    </div>
+    <textarea id="noteTextarea" placeholder="Escribe aquí tu nota..."></textarea>
+    <div class="note-panel-footer">
+        <button id="saveNotePanelBtn">💾 Guardar</button>
+    </div>
+    <div class="resize-handle-note" id="resizeHandleNote"></div>
+</div>
+
+<script>
+    // --------------------------------------------------------------
+    // CONFIGURACIÓN GLOBAL (usa proxy local para evitar CORS)
+    // --------------------------------------------------------------
+    const PROXY_URL = "proxy.php"; // El proxy PHP en el mismo directorio
+     
+    let currentSlide = 1;
+    let totalSlides = 29;
+    const IMG_PATH = "img/";
+    let slideImg = document.getElementById('slideImg');
+    let viewer = document.getElementById('imageViewer');
+    let isDraggingSlide = false;
+    let startX = 0, startY = 0;
+    let translateX = 0, translateY = 0;
+    
+    // --------------------------------------------------------------
+    // GESTIÓN DE USUARIO
+    // --------------------------------------------------------------
+    let usuarioActual = localStorage.getItem('usuarioActual');
+    if (!usuarioActual) {
+        usuarioActual = prompt("📝 Ingresa tu nombre o correo para identificar tus notas:", "Anónimo") || "Anónimo";
+        localStorage.setItem('usuarioActual', usuarioActual);
+    }
+    
+    function cambiarUsuario() {
+        localStorage.removeItem('usuarioActual');
+        location.reload();
+    }
+    document.getElementById('cambiarUsuarioBtn').addEventListener('click', cambiarUsuario);
+    
+    // --------------------------------------------------------------
+    // DIAPOSITIVAS (zoom, arrastre, navegación)
+    // --------------------------------------------------------------
+    function updateSlideImage() {
+        slideImg.src = `${IMG_PATH}Diapositiva${currentSlide}.PNG`;
+        translateX = 0; translateY = 0;
+        applyTransformSlide();
+    }
+    function applyTransformSlide() { slideImg.style.transform = `translate(${translateX}px, ${translateY}px)`; }
+    function onPointerStartSlide(e) {
+        e.preventDefault();
+        isDraggingSlide = true;
+        const point = e.touches ? e.touches[0] : e;
+        startX = point.clientX - translateX;
+        startY = point.clientY - translateY;
+        viewer.classList.add('dragging');
+    }
+    function onPointerMoveSlide(e) {
+        if (!isDraggingSlide) return;
+        e.preventDefault();
+        const point = e.touches ? e.touches[0] : e;
+        translateX = point.clientX - startX;
+        translateY = point.clientY - startY;
+        applyTransformSlide();
+    }
+    function onPointerEndSlide() {
+        isDraggingSlide = false;
+        viewer.classList.remove('dragging');
+    }
+    viewer.addEventListener('mousedown', onPointerStartSlide);
+    window.addEventListener('mousemove', onPointerMoveSlide);
+    window.addEventListener('mouseup', onPointerEndSlide);
+    viewer.addEventListener('touchstart', onPointerStartSlide);
+    window.addEventListener('touchmove', onPointerMoveSlide);
+    window.addEventListener('touchend', onPointerEndSlide);
+    
+    async function nextSlide() {
+        currentSlide = currentSlide < totalSlides ? currentSlide + 1 : 1;
+        updateSlideImage();
+        if (window.currentRenderData) {
+            await renderizarMapa(window.currentRenderData.raices, window.currentRenderData.nodosMap, window.currentRenderData.hijosMap);
+        }
+    }
+    async function prevSlide() {
+        currentSlide = currentSlide > 1 ? currentSlide - 1 : totalSlides;
+        updateSlideImage();
+        if (window.currentRenderData) {
+            await renderizarMapa(window.currentRenderData.raices, window.currentRenderData.nodosMap, window.currentRenderData.hijosMap);
+        }
+    }
+    document.getElementById('nextSlideBtn').addEventListener('click', nextSlide);
+    document.getElementById('prevSlideBtn').addEventListener('click', prevSlide);
+    
+    // --------------------------------------------------------------
+    // TEXTO ORIGINAL COMPLETO (15 temas - incluido pero abreviado aquí por claridad)
+    // --------------------------------------------------------------
+    const textoOriginal = `# ESTRUCTURA Y OPERACIÓN DE UN SISTEMA OPERATIVO MODERNO
+
+## 1. DEFINICIÓN Y PROPÓSITO FUNDAMENTAL
+### 1.1. EL SISTEMA OPERATIVO (SO) COMO SOFTWARE DE BASE
+#### 1.1.1. Intermediario entre hardware y usuario
+##### 1.1.1.1. Oculta la complejidad del hardware
+##### 1.1.1.2. Provee una interfaz de uso (CLI o GUI)
+##### 1.1.1.3. Actúa como un gestor de recursos del sistema
+#### 1.1.2. Elementos centrales del sistema
+##### 1.1.2.1. El **kernel**: el núcleo del sistema operativo
+##### 1.1.2.2. Los **servicios del sistema** (demonios)
+##### 1.1.2.3. Las **bibliotecas de sistema** (librerías compartidas)
+##### 1.1.2.4. La **interfaz de usuario** (shell, entorno gráfico)
+#### 1.1.3. Objetivos principales de un SO moderno
+##### 1.1.3.1. **Eficiencia**: Uso óptimo de la CPU, memoria y E/S
+##### 1.1.3.2. **Robustez**: Aislamiento de fallos y recuperación de errores
+##### 1.1.3.3. **Seguridad**: Protección de datos y procesos
+##### 1.1.3.4. **Concurrencia**: Manejo de múltiples tareas simultáneas
+##### 1.1.3.5. **Portabilidad**: Capacidad de ejecutarse en diversas arquitecturas
+
+## 2. ARQUITECTURAS DEL KERNEL
+### 2.1. EVOLUCIÓN Y CLASIFICACIÓN
+#### 2.1.1. Kernel Monolítico
+##### 2.1.1.1. Todos los servicios del SO en un solo bloque de código
+##### 2.1.1.2. Ventajas: Alto rendimiento y baja latencia
+##### 2.1.1.3. Desventajas: Baja modularidad y difícil mantenimiento
+##### 2.1.1.4. Ejemplo emblemático: **Linux** (versiones 6.x y 7.0)
+#### 2.1.2. Microkernel
+##### 2.1.2.1. Solo lo esencial en el núcleo (gestión de memoria básica, IPC)
+##### 2.1.2.2. Servicios adicionales como servidores en espacio de usuario
+##### 2.1.2.3. Ventajas: Alta modularidad, seguridad y estabilidad
+##### 2.1.2.4. Desventajas: Menor rendimiento por comunicación entre módulos
+##### 2.1.2.5. Uso en sistemas embebidos, automoción y entornos críticos
+#### 2.1.3. Kernel Híbrido
+##### 2.1.3.1. Combina la velocidad monolítica con la modularidad del microkernel
+##### 2.1.3.2. Permite cargar y descargar módulos en tiempo de ejecución
+##### 2.1.3.3. Ejemplos principales: Windows NT, macOS, Android, iOS
+##### 2.1.3.4. Arquitectura predominante en la industria actual
+#### 2.1.4. Otras arquitecturas emergentes
+##### 2.1.4.1. **Exokernel**: Expone recursos directamente a las aplicaciones
+##### 2.1.4.2. **Unikernel**: Combina SO y aplicación en una sola imagen
+##### 2.1.4.3. **Multikernel**: Adaptado para sistemas con muchos núcleos
+
+## 3. GESTIÓN DE PROCESOS
+### 3.1. DEFINICIÓN Y CICLO DE VIDA DEL PROCESO
+#### 3.1.1. El proceso como programa en ejecución
+##### 3.1.1.1. **PCB (Process Control Block)** : Estructura de datos central del proceso
+##### 3.1.1.2. Contiene: ID del proceso (PID), estado, contador de programa, registros, etc.
+#### 3.1.2. Estados de un proceso
+##### 3.1.2.1. **Nuevo** (New)
+##### 3.1.2.2. **Listo** (Ready)
+##### 3.1.2.3. **Ejecución** (Running)
+##### 3.1.2.4. **Bloqueado** (Waiting)
+##### 3.1.2.5. **Terminado** (Terminated)
+#### 3.1.3. Tabla de procesos y colas de planificación
+##### 3.1.3.1. Tabla de procesos (lista/vector de PCBs)
+##### 3.1.3.2. Cola de procesos listos (ready queue)
+##### 3.1.3.3. Colas de dispositivos (device queues)
+### 3.2. PLANIFICACIÓN DE LA CPU (SCHEDULING)
+#### 3.2.1. El planificador a corto plazo (dispatcher)
+##### 3.2.1.1. Selecciona el siguiente proceso a ejecutar de la cola de listos
+##### 3.2.1.2. Realiza el cambio de contexto (context switch)
+#### 3.2.2. Algoritmos de planificación modernos
+##### 3.2.2.1. **Round Robin (RR)** : Por turnos con quantum de tiempo
+##### 3.2.2.2. **Prioridades**: Estáticas o dinámicas (con envejecimiento)
+##### 3.2.2.3. **Multilevel Feedback Queue (MLFQ)**
+##### 3.2.2.4. **Completely Fair Scheduler (CFS)** de Linux
+##### 3.2.2.5. Planificación en tiempo real (EDF, RM)
+#### 3.2.3. Hilos de ejecución (threads)
+##### 3.2.3.1. **Hilos a nivel de usuario (ULT)**
+##### 3.2.3.2. **Hilos a nivel de kernel (KLT)**
+##### 3.2.3.3. Modelos de mapeo (many-to-one, one-to-one, many-to-many)
+##### 3.2.3.4. Ventajas: Menor overhead de creación y cambio de contexto
+
+## 4. GESTIÓN DE MEMORIA
+### 4.1. PRINCIPIOS BÁSICOS
+#### 4.1.1. Funciones clave del gestor de memoria
+##### 4.1.1.1. **Asignar y liberar** espacios de memoria a los procesos
+##### 4.1.1.2. **Proteger** la memoria de un proceso del acceso de otros
+##### 4.1.1.3. **Mapear** direcciones lógicas a físicas
+##### 4.1.1.4. Optimizar el uso de la RAM disponible
+#### 4.1.2. Fragmentación de la memoria
+##### 4.1.2.1. Fragmentación interna
+##### 4.1.2.2. Fragmentación externa
+##### 4.1.2.3. Técnicas de compactación y coalescencia
+### 4.2. MEMORIA VIRTUAL
+#### 4.2.1. Concepto y ventajas
+##### 4.2.1.1. Aislamiento de espacios de direcciones entre procesos
+##### 4.2.1.2. Permite ejecutar programas más grandes que la RAM física
+##### 4.2.1.3. Simplifica la carga de programas en memoria
+#### 4.2.2. Paginación
+##### 4.2.2.1. División de la memoria física en **marcos de página**
+##### 4.2.2.2. División de la memoria lógica en **páginas**
+##### 4.2.2.3. Tabla de páginas (page table) por proceso
+##### 4.2.2.4. TLB (Translation Lookaside Buffer) para acelerar traducciones
+#### 4.2.3. Segmentación
+##### 4.2.3.1. División lógica del programa en **segmentos** (código, datos, pila)
+##### 4.2.3.2. Tabla de segmentos: base y límite para cada segmento
+##### 4.2.3.3. Visibilidad para el programador (a diferencia de la paginación)
+#### 4.2.4. Técnicas combinadas y avanzadas
+##### 4.2.4.1. Segmentación paginada (paged segmentation)
+##### 4.2.4.2. Paginación multinivel (x86-64 usa 4 niveles)
+##### 4.2.4.3. Swapping: intercambio de procesos completos entre RAM y disco
+
+## 5. GESTIÓN DE ENTRADA/SALIDA (E/S)
+### 5.1. PROPÓSITO DE LA CAPA DE E/S
+#### 5.1.1. Proporcionar una interfaz uniforme para dispositivos heterogéneos
+#### 5.1.2. Manejar las diferencias de velocidad entre CPU y periféricos
+#### 5.1.3. Controlar y monitorizar el estado de los dispositivos
+### 5.2. CONTROLADORES (DRIVERS) Y GESTIÓN DE DISPOSITIVOS
+#### 5.2.1. El controlador como interfaz hardware-software
+##### 5.2.1.1. Cada dispositivo tiene su controlador específico
+##### 5.2.1.2. El controlador traduce comandos genéricos a operaciones de hardware
+#### 5.2.2. Tipos de dispositivos de E/S
+##### 5.2.2.1. **Bloque**: discos duros, SSDs (acceso aleatorio por bloques)
+##### 5.2.2.2. **Carácter**: teclados, ratones, impresoras (flujo de bytes)
+##### 5.2.2.3. **Red**: tarjetas de red (paquetes)
+### 5.3. TÉCNICAS DE COMUNICACIÓN CON PERIFÉRICOS
+#### 5.3.1. E/S Programada (Polling)
+##### 5.3.1.1. La CPU verifica constantemente el estado del dispositivo
+##### 5.3.1.2. Ineficiente, pero simple de implementar
+#### 5.3.2. E/S por Interrupciones (Interrupt-Driven I/O)
+##### 5.3.2.1. El dispositivo notifica a la CPU cuando está listo
+##### 5.3.2.2. Libera a la CPU para otras tareas mientras espera
+#### 5.3.3. Acceso Directo a Memoria (DMA)
+##### 5.3.3.1. Controlador DMA transfiere datos directamente entre dispositivo y RAM
+##### 5.3.3.2. La CPU solo interviene al inicio y al final de la transferencia
+##### 5.3.3.3. Máxima eficiencia para grandes volúmenes de datos
+
+## 6. SISTEMAS DE ARCHIVOS (FILE SYSTEMS)
+### 6.1. PROPÓSITO Y ESTRUCTURA
+#### 6.1.1. Organización persistente de datos en dispositivos de almacenamiento
+#### 6.1.2. Proporciona una estructura jerárquica de directorios (árbol invertido)
+#### 6.1.3. Gestiona metadatos (propietario, fechas, permisos, tamaño)
+#### 6.1.4. Implementa políticas de protección y cuotas
+### 6.2. SISTEMAS DE ARCHIVOS MODERNOS
+#### 6.2.1. **NTFS** (Windows)
+##### 6.2.1.1. Soporte para archivos y particiones de gran tamaño
+##### 6.2.1.2. Permisos y cifrado (EFS), recuperación ante fallos
+##### 6.2.1.3. Journaling (bitácora) para integridad
+#### 6.2.2. **ext4** (Linux)
+##### 6.2.2.1. Estándar en distribuciones Linux
+##### 6.2.2.2. Extents para mejorar rendimiento con archivos grandes
+##### 6.2.2.3. Journaling y soporte para volúmenes de hasta 1 exabyte
+#### 6.2.3. **APFS** (macOS, iOS)
+##### 6.2.3.1. Optimizado para unidades SSD
+##### 6.2.3.2. Clonación de archivos (copy-on-write)
+##### 6.2.3.3. Snapshots y cifrado nativo sólido
+#### 6.2.4. Sistemas de archivos de red y distribuidos
+##### 6.2.4.1. NFS (Network File System)
+##### 6.2.4.2. SMB/CIFS (Server Message Block)
+##### 6.2.4.3. Sistemas distribuidos: Ceph, GlusterFS
+##### 6.2.4.4. Sistemas para Big Data: HDFS, GFS
+
+## 7. SEGURIDAD Y PROTECCIÓN EN EL SISTEMA OPERATIVO
+### 7.1. FUNDAMENTOS DE SEGURIDAD
+#### 7.1.1. **Confidencialidad**: Solo usuarios autorizados acceden a los datos
+#### 7.1.2. **Integridad**: Los datos no son alterados sin permiso
+#### 7.1.3. **Disponibilidad**: El sistema responde cuando se le solicita
+### 7.2. MECANISMOS DE CONTROL DE ACCESO
+#### 7.2.1. Modelo de Control de Acceso Discrecional (DAC)
+##### 7.2.1.1. Permisos de archivo (lectura, escritura, ejecución)
+##### 7.2.1.2. Propietarios y grupos de usuarios
+#### 7.2.2. Modelo de Control de Acceso Obligatorio (MAC)
+##### 7.2.2.1. Etiquetas de seguridad en procesos y objetos
+##### 7.2.2.2. SELinux y AppArmor en sistemas Linux
+#### 7.2.3. Listas de Control de Acceso (ACLs)
+##### 7.2.3.1. Permisos más granulares que el modelo tradicional
+##### 7.2.3.2. Soportado en NTFS y sistemas de archivos modernos
+### 7.3. SEGURIDAD BASADA EN HARDWARE
+#### 7.3.1. TPM (Trusted Platform Module)
+##### 7.3.1.1. Chip criptográfico soldado en la placa base
+##### 7.3.1.2. Almacenamiento seguro de claves de cifrado
+##### 7.3.1.3. Medición de integridad del proceso de arranque (Secure Boot)
+#### 7.3.2. Cifrado de disco completo (BitLocker, FileVault, LUKS)
+##### 7.3.2.1. Protege datos en caso de robo o pérdida del dispositivo
+##### 7.3.2.2. Integración con TPM para atar la clave al hardware
+
+## 8. COMUNICACIÓN APLICACIÓN - KERNEL: LLAMADAS AL SISTEMA
+### 8.1. DEFINICIÓN Y PROPÓSITO
+#### 8.1.1. Interfaz que permite a los programas de usuario solicitar servicios al kernel
+#### 8.1.2. Punto de entrada controlado al núcleo del sistema operativo
+#### 8.1.3. Realizan la transición de modo usuario a modo kernel
+### 8.2. TIPOS DE LLAMADAS AL SISTEMA
+#### 8.2.1. Control de procesos (fork, exec, wait, exit)
+#### 8.2.2. Gestión de archivos (open, read, write, close)
+#### 8.2.3. Gestión de dispositivos (ioctl, read, write)
+#### 8.2.4. Mantenimiento de información (getpid, time, alarm)
+#### 8.2.5. Comunicación (pipe, shmget, mmap)
+### 8.3. MECANISMO DE INVOCACIÓN
+#### 8.3.1. La biblioteca C estándar (glibc) proporciona funciones envoltura
+#### 8.3.2. La función envoltura ejecuta una instrucción especial (int 0x80 o syscall)
+#### 8.3.3. El kernel ejecuta la rutina de servicio correspondiente
+#### 8.3.4. Se devuelve el control a la aplicación con el resultado
+
+## 9. MANEJO DE INTERRUPCIONES
+### 9.1. CONCEPTO Y TIPOS
+#### 9.1.1. Señal que indica al procesador que un evento requiere atención inmediata
+#### 9.1.2. Interrupciones de **hardware** (teclado, temporizador, disco)
+#### 9.1.3. Interrupciones de **software** (excepciones, syscalls)
+### 9.2. MECANISMO DE ATENCIÓN
+#### 9.2.1. El hardware guarda el estado actual (PC, registros)
+#### 9.2.2. Se carga el vector de interrupción para localizar el manejador (ISR)
+#### 9.2.3. Se ejecuta el **Interrupt Service Routine (ISR)**
+#### 9.2.4. Se restaura el estado y se retoma la ejecución previa
+### 9.3. PRIORIDADES DE INTERRUPCIÓN
+#### 9.3.1. Las interrupciones tienen niveles de prioridad (IRQ priority)
+#### 9.3.2. Dispositivos de baja latencia tienen mayor prioridad
+#### 9.3.3. Una interrupción de mayor prioridad puede interrumpir a otra de menor prioridad
+#### 9.3.4. Esquemas de prioridad lógica vs física (PIC/APIC)
+
+## 10. GESTIÓN DE FALLOS Y RECUPERACIÓN DE APLICACIONES
+### 10.1. DETECCIÓN DE APLICACIONES NO RESPONSIVAS
+#### 10.1.1. El sistema monitoriza el tiempo de respuesta de las aplicaciones
+#### 10.1.2. Watchdog timers y mecanismos de heartbeat
+#### 10.1.3. Ventanas gráficas (Windows, X11) detectan interfaz congelada
+### 10.2. MECANISMOS DE RECUPERACIÓN
+#### 10.2.1. El usuario fuerza el cierre de la aplicación
+#### 10.2.2. El SO envía una señal de terminación (SIGTERM, SIGKILL)
+#### 10.2.3. El kernel libera los recursos asignados al proceso
+##### 10.2.3.1. Memoria (RAM, páginas de memoria virtual)
+##### 10.2.3.2. Archivos abiertos (file descriptors)
+##### 10.2.3.3. Dispositivos en uso
+#### 10.2.4. Elimina la entrada del PCB de la tabla de procesos
+#### 10.2.5. El resto del sistema permanece operativo y estable
+
+## 11. COMUNICACIÓN ENTRE PROCESOS (IPC)
+### 11.1. DEFINICIÓN Y NECESIDAD
+#### 11.1.1. Mecanismos que permiten a los procesos intercambiar datos y sincronizarse
+#### 11.1.2. Esencial para arquitecturas cliente-servidor y microkernel
+### 11.2. MÉTODOS DE IPC
+#### 11.2.1. **Pipes** (tuberías)
+##### 11.2.1.1. Comunicación unidireccional entre procesos relacionados
+##### 11.2.1.2. Pipes con nombre (FIFO) para procesos no relacionados
+#### 11.2.2. **Memoria Compartida**
+##### 11.2.2.1. Región de memoria accesible por múltiples procesos
+##### 11.2.2.2. El método más rápido, pero requiere sincronización
+#### 11.2.3. **Colas de Mensajes**
+##### 11.2.3.1. Intercambio de mensajes estructurados
+##### 11.2.3.2. Comunicación asíncrona y por prioridades
+#### 11.2.4. **Semáforos**
+##### 11.2.4.1. Mecanismo de sincronización
+##### 11.2.4.2. Control de acceso a recursos compartidos
+#### 11.2.5. **Señales** (Signals)
+##### 11.2.5.1. Notificaciones asíncronas a procesos
+#### 11.2.6. **Sockets**
+##### 11.2.6.1. Comunicación bidireccional (red o local)
+##### 11.2.6.2. API estándar en redes y sistemas distribuidos
+
+## 12. ADMINISTRACIÓN DE RECURSOS DEL SISTEMA
+### 12.1. TIPOS DE RECURSOS GESTIONADOS
+#### 12.1.1. **CPU**: Tiempo de procesamiento mediante planificación
+#### 12.1.2. **Memoria**: RAM y memoria virtual
+#### 12.1.3. **Almacenamiento**: Espacio en discos y cuotas
+#### 12.1.4. **Dispositivos de E/S**: Impresoras, puertos, etc.
+### 12.2. POLÍTICAS DE ASIGNACIÓN
+#### 12.2.1. Planificación equitativa (fair scheduling)
+#### 12.2.2. Garantías de servicio (QoS - Quality of Service)
+#### 12.2.3. Control de admisión en tiempo real
+#### 12.2.4. Cgroups y namespaces en Linux (aislamiento de recursos)
+### 12.3. MONITORIZACIÓN Y CONTABILIDAD
+#### 12.3.1. Registro de uso de recursos por proceso (accounting)
+#### 12.3.2. Herramientas de monitorización (top, htop, Task Manager)
+#### 12.3.3. Alertas y umbrales de consumo excesivo
+
+## 13. VIRTUALIZACIÓN Y CONTENEDORES
+### 13.1. MÁQUINAS VIRTUALES (VMs)
+#### 13.1.1. Emulación de hardware completo mediante hipervisor
+#### 13.1.2. Hipervisor tipo 1 (bare-metal): VMware ESXi, KVM, Xen
+#### 13.1.3. Hipervisor tipo 2 (hosted): VirtualBox, VMware Workstation
+#### 13.1.4. Cada VM ejecuta su propio sistema operativo completo
+### 13.2. CONTENEDORES
+#### 13.2.1. Aislamiento a nivel de sistema operativo, no de hardware
+#### 13.2.2. Comparten el kernel del sistema anfitrión
+#### 13.2.3. Son más ligeros y rápidos de iniciar que las VMs
+#### 13.2.4. Ejemplos: Docker, LXC, Podman
+#### 13.2.5. Tecnologías subyacentes: namespaces y cgroups en Linux
+
+## 14. TENDENCIAS MODERNAS EN SISTEMAS OPERATIVOS (2025-2026)
+### 14.1. EVOLUCIÓN DE KERNELS CONOCIDOS
+#### 14.1.1. Linux 7.0: estabilidad, rendimiento y soporte de hardware emergente
+#### 14.1.2. Aluminium OS (Google): fusión de Android y ChromeOS para PCs
+#### 14.1.3. Windows 2025 Server: rendimiento y seguridad mejorados
+### 14.2. INTEGRACIÓN DE INTELIGENCIA ARTIFICIAL
+#### 14.2.1. Planificación de CPU asistida por ML para optimización dinámica
+#### 14.2.2. Detección predictiva de anomalías y amenazas de seguridad
+#### 14.2.3. Gestión de memoria adaptativa basada en patrones de uso
+#### 14.2.4. Asistentes inteligentes integrados a nivel de sistema
+### 14.3. NUEVOS MODELOS DE SEGURIDAD Y PRIVACIDAD
+#### 14.3.1. Ejecución confiable con TEEs (Trusted Execution Environments)
+#### 14.3.2. Cifrado homomórfico y computación privada
+#### 14.3.3. Políticas de Zero Trust implementadas en el kernel
+### 14.4. ADAPTACIÓN A NUEVAS ARQUITECTURAS DE HARDWARE
+#### 14.4.1. Optimización para procesadores ARM y RISC-V
+#### 14.4.2. Soporte avanzado para memorias no volátiles (NVM, Optane)
+#### 14.4.3. Gestión heterogénea de núcleos (big.LITTLE, Hybrid x86)
+
+## 15. CONCLUSIÓN
+El sistema operativo es una pieza de software de enorme complejidad y constante evolución. Sus componentes no operan de forma aislada, sino como un ecosistema altamente coordinado cuyo objetivo final es ofrecer una plataforma estable, segura y eficiente. Desde la planificación de procesos hasta la gestión de memoria virtual, y desde los controladores de dispositivos hasta la integración de inteligencia artificial, cada subsistema está meticulosamente diseñado para crear la ilusión de un sistema simple y receptivo sobre un hardware intrínsecamente complejo y paralelo. Comprender estas capas es fundamental para cualquier profesional de la informática.`;
+
+    // --------------------------------------------------------------
+    // PARSEO Y RENDERIZADO DEL MAPA (eventos separados que funcionan)
+    // --------------------------------------------------------------
+    function parsear(texto) {
+        const lineas = texto.split(/\r?\n/);
+        const nodos = [];
+        let pila = [];
+        let id = 1;
+        for (let linea of lineas) {
+            linea = linea.trim();
+            if (!linea) continue;
+            let nivel = -1, etiqueta = linea;
+            if (linea.startsWith("# ")) { nivel = 0; etiqueta = linea.slice(2).trim(); }
+            else if (linea.startsWith("## ")) { nivel = 1; etiqueta = linea.slice(3).trim(); }
+            else if (linea.startsWith("### ")) { nivel = 2; etiqueta = linea.slice(4).trim(); }
+            else if (linea.startsWith("#### ")) { nivel = 3; etiqueta = linea.slice(5).trim(); }
+            else if (linea.startsWith("##### ")) { nivel = 4; etiqueta = linea.slice(6).trim(); }
+            else if (linea.startsWith("- ") || linea.startsWith("* ")) {
+                nivel = pila.length ? pila[pila.length - 1].nivel + 1 : 1;
+                etiqueta = linea.slice(2).trim();
+            } else {
+                nivel = pila.length ? pila[pila.length - 1].nivel + 1 : 1;
+                etiqueta = linea;
+            }
+            while (pila.length && pila[pila.length - 1].nivel >= nivel) pila.pop();
+            const padreId = pila.length ? pila[pila.length - 1].id : null;
+            const nuevoId = id++;
+            nodos.push({ id: nuevoId, etiqueta, nivel, padreId });
+            pila.push({ id: nuevoId, nivel });
+        }
+        const hijosMap = new Map();
+        nodos.forEach(n => hijosMap.set(n.id, []));
+        nodos.forEach(n => { if (n.padreId) hijosMap.get(n.padreId).push(n.id); });
+        const raices = nodos.filter(n => n.padreId === null);
+        return { nodos, hijosMap, raices };
+    }
+    
+    // --------------------------------------------------------------
+    // NOTAS EN LA NUBE (a través del proxy)
+    // --------------------------------------------------------------
+    async function loadNote(nodeId, slide) {
+        try {
+            const url = `${PROXY_URL}?idNodo=${nodeId}&idSlide=${slide}&usuario=${encodeURIComponent(usuarioActual)}`;
+            const respuesta = await fetch(url);
+            const datos = await respuesta.json();
+            if (datos && datos.length > 0 && datos[0].contenido) {
+                return datos[0].contenido;
+            }
+            return '';
+        } catch (error) {
+            console.error("Error al cargar nota:", error);
+            return '';
+        }
+    }
+    
+    async function saveNote(nodeId, slide, contenido) {
+    try {
+        const idNodo = parseInt(nodeId, 10);
+        const idSlide = parseInt(slide, 10);
+        
+        if (isNaN(idNodo) || isNaN(idSlide)) {
+            throw new Error(`IDs inválidos: nodo=${nodeId}, slide=${slide}`);
+        }
+        
+        const payload = {
+            idNodo: idNodo,
+            idSlide: idSlide,
+            usuario: usuarioActual,
+            contenido: contenido
+        };
+        
+        console.log("Enviando al proxy:", JSON.stringify(payload));
+        
+        const respuesta = await fetch(PROXY_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        console.log("Estado HTTP:", respuesta.status);
+        const textoRespuesta = await respuesta.text();
+        console.log("Respuesta cruda:", textoRespuesta);
+        
+        let resultado;
+        try {
+            resultado = JSON.parse(textoRespuesta);
+        } catch(e) {
+            throw new Error("Respuesta no es JSON: " + textoRespuesta.substring(0, 200));
+        }
+        
+        if (resultado.success === true) {
+            console.log("Nota guardada correctamente");
+            return true;
+        } else {
+            throw new Error(resultado.error || "Error desconocido");
+        }
+    } catch (error) {
+        console.error("Error al guardar nota:", error);
+        alert("No se pudo guardar la nota: " + error.message);
+        return false;
+    }
+}
+    
+    async function updateNoteIndicator(card, nodeId, slide) {
+        const noteBtn = card.querySelector('.note-btn');
+        if (!noteBtn) return;
+        const content = await loadNote(nodeId, slide);
+        if (content && content.trim() !== '') {
+            if (!noteBtn.querySelector('.note-indicator')) {
+                const indicator = document.createElement('span');
+                indicator.className = 'note-indicator';
+                noteBtn.appendChild(indicator);
+            }
+            noteBtn.style.opacity = '1';
+            noteBtn.title = 'Editar nota (tiene contenido)';
+        } else {
+            const indicator = noteBtn.querySelector('.note-indicator');
+            if (indicator) indicator.remove();
+            noteBtn.title = 'Añadir nota';
+        }
+    }
+    
+    // --------------------------------------------------------------
+    // PANEL FLOTANTE DE NOTAS (independiente)
+    // --------------------------------------------------------------
+    const notePanel = document.getElementById('notePanel');
+    const notePanelHeader = document.getElementById('notePanelHeader');
+    const closeNotePanelBtn = document.getElementById('closeNotePanelBtn');
+    const saveNotePanelBtn = document.getElementById('saveNotePanelBtn');
+    const noteTextarea = document.getElementById('noteTextarea');
+    const resizeHandleNote = document.getElementById('resizeHandleNote');
+    
+    let currentNoteNodeId = null;
+    let currentNoteCard = null;
+    let isDraggingNote = false, isResizingNote = false;
+    let noteStartX, noteStartY, noteStartLeft, noteStartTop;
+    let noteStartWidth, noteStartHeight, noteStartMouseX, noteStartMouseY;
+    
+    function openNotePanel(nodeId, card) {
+        currentNoteNodeId = nodeId;
+        currentNoteCard = card;
+        notePanel.style.display = 'flex';
+        loadNote(nodeId, currentSlide).then(content => {
+            noteTextarea.value = content;
+        });
+        if (!notePanel.style.left || notePanel.style.left === 'auto') {
+            notePanel.style.left = '20%';
+            notePanel.style.top = '20%';
+        }
+    }
+    
+    function closeNotePanel() {
+        notePanel.style.display = 'none';
+        currentNoteNodeId = null;
+        currentNoteCard = null;
+    }
+    
+    async function saveCurrentNotePanel() {
+        if (currentNoteNodeId === null) return;
+        const content = noteTextarea.value;
+        const success = await saveNote(currentNoteNodeId, currentSlide, content);
+        if (success && currentNoteCard) {
+            await updateNoteIndicator(currentNoteCard, currentNoteNodeId, currentSlide);
+            alert("Nota guardada correctamente en la nube.");
+        }
+        closeNotePanel();
+    }
+    
+    closeNotePanelBtn.addEventListener('click', closeNotePanel);
+    saveNotePanelBtn.addEventListener('click', saveCurrentNotePanel);
+    
+    // Arrastre del panel de notas
+    notePanelHeader.addEventListener('mousedown', (e) => {
+        if (e.target === notePanelHeader || notePanelHeader.contains(e.target)) {
+            isDraggingNote = true;
+            noteStartX = e.clientX;
+            noteStartY = e.clientY;
+            noteStartLeft = notePanel.offsetLeft;
+            noteStartTop = notePanel.offsetTop;
+            notePanel.style.cursor = 'grabbing';
+            e.preventDefault();
+        }
+    });
+    window.addEventListener('mousemove', (e) => {
+        if (isDraggingNote) {
+            let dx = e.clientX - noteStartX;
+            let dy = e.clientY - noteStartY;
+            notePanel.style.left = `${noteStartLeft + dx}px`;
+            notePanel.style.top = `${noteStartTop + dy}px`;
+        }
+        if (isResizingNote) {
+            let dw = e.clientX - noteStartMouseX;
+            let dh = e.clientY - noteStartMouseY;
+            let newWidth = Math.max(250, noteStartWidth + dw);
+            let newHeight = Math.max(200, noteStartHeight + dh);
+            notePanel.style.width = `${newWidth}px`;
+            notePanel.style.height = `${newHeight}px`;
+        }
+    });
+    window.addEventListener('mouseup', () => { isDraggingNote = false; isResizingNote = false; notePanel.style.cursor = ''; });
+    resizeHandleNote.addEventListener('mousedown', (e) => {
+        isResizingNote = true;
+        noteStartMouseX = e.clientX;
+        noteStartMouseY = e.clientY;
+        noteStartWidth = notePanel.offsetWidth;
+        noteStartHeight = notePanel.offsetHeight;
+        e.preventDefault();
+    });
+    // Eventos táctiles (simplificados)
+    notePanelHeader.addEventListener('touchstart', (e) => {
+        if (e.target === notePanelHeader || notePanelHeader.contains(e.target)) {
+            isDraggingNote = true;
+            const touch = e.touches[0];
+            noteStartX = touch.clientX;
+            noteStartY = touch.clientY;
+            noteStartLeft = notePanel.offsetLeft;
+            noteStartTop = notePanel.offsetTop;
+            e.preventDefault();
+        }
+    });
+    resizeHandleNote.addEventListener('touchstart', (e) => {
+        isResizingNote = true;
+        const touch = e.touches[0];
+        noteStartMouseX = touch.clientX;
+        noteStartMouseY = touch.clientY;
+        noteStartWidth = notePanel.offsetWidth;
+        noteStartHeight = notePanel.offsetHeight;
+        e.preventDefault();
+    });
+    window.addEventListener('touchmove', (e) => {
+        if (isDraggingNote && e.touches[0]) {
+            let dx = e.touches[0].clientX - noteStartX;
+            let dy = e.touches[0].clientY - noteStartY;
+            notePanel.style.left = `${noteStartLeft + dx}px`;
+            notePanel.style.top = `${noteStartTop + dy}px`;
+        }
+        if (isResizingNote && e.touches[0]) {
+            let dw = e.touches[0].clientX - noteStartMouseX;
+            let dh = e.touches[0].clientY - noteStartMouseY;
+            notePanel.style.width = `${Math.max(250, noteStartWidth + dw)}px`;
+            notePanel.style.height = `${Math.max(200, noteStartHeight + dh)}px`;
+        }
+    });
+    window.addEventListener('touchend', () => { isDraggingNote = false; isResizingNote = false; });
+    
+    // --------------------------------------------------------------
+    // RENDERIZADO DEL MAPA (con eventos en flecha y título por separado)
+    // --------------------------------------------------------------
+    async function renderizarMapa(raices, nodosMap, hijosMap) {
+        const contenedor = document.getElementById('mapaContent');
+        if (!raices.length) return;
+        
+        const build = (idNodo) => {
+            const nodo = nodosMap.get(idNodo);
+            if (!nodo) return null;
+            const hijos = hijosMap.get(idNodo) || [];
+            const card = document.createElement('div');
+            card.className = `card level-${Math.min(nodo.nivel, 4)}`;
+            card.dataset.nodeId = nodo.id;
+            const tituloDiv = document.createElement('div');
+            tituloDiv.className = 'title';
+            const spanTitulo = document.createElement('span');
+            spanTitulo.textContent = nodo.etiqueta;
+            tituloDiv.appendChild(spanTitulo);
+            
+            // Botón de notas (solo niveles 1-4)
+            if (nodo.nivel >= 1 && nodo.nivel <= 4) {
+                const noteBtn = document.createElement('button');
+                noteBtn.innerHTML = '✏️';
+                noteBtn.className = 'note-btn';
+                noteBtn.title = 'Añadir/editar nota';
+                noteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    openNotePanel(nodo.id, card);
+                });
+                tituloDiv.appendChild(noteBtn);
+            }
+            
+            let childDiv = null;
+            let icono = null;
+            if (hijos.length) {
+                childDiv = document.createElement('div');
+                childDiv.className = 'children collapsed';
+                const hijosInvertidos = [...hijos].reverse();
+                for (let h of hijosInvertidos) {
+                    const sub = build(h);
+                    if (sub) childDiv.appendChild(sub);
+                }
+                card.appendChild(childDiv);
+                icono = document.createElement('span');
+                icono.className = 'icon';
+                icono.textContent = '▶';
+                tituloDiv.appendChild(icono);
+            }
+            card.appendChild(tituloDiv);
+            
+            if (hijos.length) {
+                const toggle = () => {
+                    if (childDiv.classList.contains('collapsed')) {
+                        childDiv.classList.remove('collapsed');
+                        icono.textContent = '▼';
+                    } else {
+                        childDiv.classList.add('collapsed');
+                        icono.textContent = '▶';
+                    }
+                };
+                // La flecha tiene su propio evento
+                icono.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    toggle();
+                });
+                // El título también (excepto si se hizo clic en el botón de nota)
+                tituloDiv.addEventListener('click', (e) => {
+                    if (e.target.classList && e.target.classList.contains('note-btn')) return;
+                    toggle();
+                });
+            }
+            
+            // Actualizar indicador de nota
+            if (nodo.nivel >= 1 && nodo.nivel <= 4) {
+                setTimeout(() => updateNoteIndicator(card, nodo.id, currentSlide), 10);
+            }
+            return card;
+        };
+        
+        const rootDiv = document.createElement('div');
+        for (let r of raices) {
+            const rc = build(r.id);
+            if (rc) rootDiv.appendChild(rc);
+        }
+        contenedor.innerHTML = '';
+        contenedor.appendChild(rootDiv);
+    }
+    
+    function expandirTodoMapa() {
+        document.querySelectorAll('#mapaContent .children').forEach(c => c.classList.remove('collapsed'));
+        document.querySelectorAll('#mapaContent .icon').forEach(i => i.textContent = '▼');
+    }
+    function colapsarTodoMapa() {
+        document.querySelectorAll('#mapaContent .children').forEach(c => c.classList.add('collapsed'));
+        document.querySelectorAll('#mapaContent .icon').forEach(i => i.textContent = '▶');
+    }
+    
+    // --------------------------------------------------------------
+    // MOVIMIENTO Y REDIMENSIONAMIENTO DEL PANEL PRINCIPAL
+    // --------------------------------------------------------------
+    const mapaContainer = document.getElementById('mapaContainer');
+    const mapaHeader = document.getElementById('mapaHeader');
+    const resizeHandle = document.getElementById('resizeHandle');
+    let isResizing = false, isMoving = false;
+    let startMouseX, startMouseY, startWidth, startHeight, startLeft, startTop;
+    
+    mapaHeader.addEventListener('mousedown', (e) => {
+        if (e.target === mapaHeader || mapaHeader.contains(e.target)) {
+            isMoving = true;
+            startMouseX = e.clientX;
+            startMouseY = e.clientY;
+            startLeft = mapaContainer.offsetLeft;
+            startTop = mapaContainer.offsetTop;
+            mapaContainer.style.cursor = 'grabbing';
+            e.preventDefault();
+        }
+    });
+    window.addEventListener('mousemove', (e) => {
+        if (isMoving) {
+            mapaContainer.style.left = `${startLeft + (e.clientX - startMouseX)}px`;
+            mapaContainer.style.top = `${startTop + (e.clientY - startMouseY)}px`;
+        }
+        if (isResizing) {
+            let newWidth = Math.max(300, startWidth + (e.clientX - startMouseX));
+            let newHeight = Math.max(300, startHeight + (e.clientY - startMouseY));
+            mapaContainer.style.width = `${newWidth}px`;
+            mapaContainer.style.height = `${newHeight}px`;
+        }
+    });
+    window.addEventListener('mouseup', () => { isMoving = false; isResizing = false; mapaContainer.style.cursor = ''; });
+    resizeHandle.addEventListener('mousedown', (e) => {
+        isResizing = true;
+        startMouseX = e.clientX;
+        startMouseY = e.clientY;
+        startWidth = mapaContainer.offsetWidth;
+        startHeight = mapaContainer.offsetHeight;
+        e.preventDefault();
+    });
+    // Táctil
+    mapaHeader.addEventListener('touchstart', (e) => {
+        if (e.target === mapaHeader || mapaHeader.contains(e.target)) {
+            isMoving = true;
+            const touch = e.touches[0];
+            startMouseX = touch.clientX;
+            startMouseY = touch.clientY;
+            startLeft = mapaContainer.offsetLeft;
+            startTop = mapaContainer.offsetTop;
+            e.preventDefault();
+        }
+    });
+    resizeHandle.addEventListener('touchstart', (e) => {
+        isResizing = true;
+        const touch = e.touches[0];
+        startMouseX = touch.clientX;
+        startMouseY = touch.clientY;
+        startWidth = mapaContainer.offsetWidth;
+        startHeight = mapaContainer.offsetHeight;
+        e.preventDefault();
+    });
+    window.addEventListener('touchmove', (e) => {
+        if (isMoving && e.touches[0]) {
+            let dx = e.touches[0].clientX - startMouseX;
+            let dy = e.touches[0].clientY - startMouseY;
+            mapaContainer.style.left = `${startLeft + dx}px`;
+            mapaContainer.style.top = `${startTop + dy}px`;
+        }
+        if (isResizing && e.touches[0]) {
+            let dw = e.touches[0].clientX - startMouseX;
+            let dh = e.touches[0].clientY - startMouseY;
+            mapaContainer.style.width = `${Math.max(300, startWidth + dw)}px`;
+            mapaContainer.style.height = `${Math.max(300, startHeight + dh)}px`;
+        }
+    });
+    window.addEventListener('touchend', () => { isMoving = false; isResizing = false; });
+    
+    // --------------------------------------------------------------
+    // CONTROL DE APERTURA/CIERRE DEL MAPA (con ESC)
+    // --------------------------------------------------------------
+    const overlay = document.getElementById('overlay');
+    const openMapBtn = document.getElementById('openMapBtn');
+    const cerrarMapaBtn = document.getElementById('cerrarMapaBtn');
+    
+    function abrirMapa() {
+        overlay.style.display = 'block';
+        mapaContainer.style.display = 'flex';
+        openMapBtn.style.display = 'none';
+    }
+    function cerrarMapa() {
+        overlay.style.display = 'none';
+        mapaContainer.style.display = 'none';
+        openMapBtn.style.display = 'block';
+    }
+    openMapBtn.addEventListener('click', abrirMapa);
+    cerrarMapaBtn.addEventListener('click', cerrarMapa);
+    overlay.addEventListener('click', cerrarMapa);
+    
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            if (mapaContainer.style.display === 'flex') cerrarMapa();
+        }
+    });
+    
+    document.getElementById('expandirTodoMapa').addEventListener('click', expandirTodoMapa);
+    document.getElementById('colapsarTodoMapa').addEventListener('click', colapsarTodoMapa);
+    
+    // --------------------------------------------------------------
+    // INICIALIZACIÓN
+    // --------------------------------------------------------------
+    updateSlideImage();
+    const { nodos, hijosMap, raices } = parsear(textoOriginal);
+    const nodosMap = new Map();
+    nodos.forEach(n => nodosMap.set(n.id, n));
+    window.currentRenderData = { raices, nodosMap, hijosMap };
+    renderizarMapa(raices, nodosMap, hijosMap);
+</script>
+</body>
+</html>
